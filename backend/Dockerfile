@@ -9,10 +9,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Step 4: Pre-download the SentenceTransformer model
-# This is the crucial step to prevent runtime downloads and restarts
-COPY download_model.py .
-RUN python download_model.py
+# --- STEP 4 HAS BEEN REMOVED ---
+# The local model download is no longer needed for the free tier version.
 
 # Step 5: Copy the rest of the backend application code
 COPY . .
@@ -23,3 +21,4 @@ EXPOSE 8000
 # Step 7: Define the command to run the application
 # We use 0.0.0.0 to allow traffic from outside the container
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
