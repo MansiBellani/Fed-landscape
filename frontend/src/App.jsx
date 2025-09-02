@@ -7,7 +7,7 @@ import logo from "./assets/image.png";
 // When your app is live on Render, you must replace the localhost URL below
 // with the actual URL of your deployed backend service.
 // Example: const BACKEND_URL = 'https://your-backend-name.onrender.com';
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = 'https://backend-k4sq.onrender.com';
 
 const KEYWORD_OPTIONS = [
   "NSF Recompete Pilot Program",
