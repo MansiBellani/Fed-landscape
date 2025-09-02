@@ -1,4 +1,4 @@
-# This file tells Render how to deploy your services.
+# This file tells Render how to deploy your services for free.
 services:
   # Backend Service (Python/FastAPI)
   - type: web
@@ -6,10 +6,9 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # Health check to ensure the service is running
+    # --- THIS IS THE KEY CHANGE ---
+    plan: free # Use the free instance tier
     healthCheckPath: /docs
-    # Define the environment variables. You will set the actual values
-    # in the Render dashboard under the 'Environment' tab for this service.
     envVars:
       - key: SERPER_API_KEY
         sync: false
@@ -23,14 +22,5 @@ services:
         sync: false
 
   # Frontend Service (React)
-  - type: web
-    name: frontend
-    runtime: docker
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
-    # Define the environment variable that tells the frontend
-    # where to find the backend. You will set its value in the dashboard.
-    envVars:
-      - key: VITE_BACKEND_URL # The key we will use in our React code
-        value: "https://your-backend-url.onrender.com" # Placeholder value
+  # We will deploy the frontend separately on Vercel/Netlify for better performance.
 
