@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import Select from "react-select";
-import logo from './assets/image.png';
+import Select from 'react-select'
 
-// --- Predefined keywords for the TUFF Fed Landscape ---
+// --- IMPORTANT FOR DEPLOYMENT ---
+// When your app is live on Render, you must replace the localhost URL below
+// with the actual URL of your deployed backend service.
+// Example: const BACKEND_URL = 'https://your-backend-name.onrender.com';
+const BACKEND_URL = 'http://localhost:8000';
+
 const KEYWORD_OPTIONS = [
   "NSF Recompete Pilot Program",
   "Economic Development Agency (EDA)",
@@ -26,7 +30,7 @@ const KEYWORD_OPTIONS = [
 ].map(keyword => ({ value: keyword, label: keyword }));
 
 function App() {
-  const [recipientEmail, setRecipientEmail] = useState('tuff2603@gmail.com');
+  const [recipientEmail, setRecipientEmail] = useState('interns@tuff.org');
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [articles, setArticles] = useState([]);
@@ -55,7 +59,8 @@ function App() {
 
     try {
       const keywords = selectedKeywords.map(option => option.value);
-      const response = await axios.post('http://localhost:8000/api/process', {
+      // --- Use the dynamic BACKEND_URL here ---
+      const response = await axios.post(`${BACKEND_URL}/api/process`, {
         recipient_email: recipientEmail,
         selected_keywords: keywords
       });
@@ -115,7 +120,7 @@ function App() {
   return (
     <div className="App">
       <header className="app-header">
-        <img src={logo} alt="TUFF Logo" className="logo" style={{width:"200px", height:"auto"}}/>
+        <img src={"./assets/image.png"} alt="TUFF Logo" className="logo" />
         <h1>TUFF Fed Landscape</h1>
       </header>
       <p>Select keywords to generate and email the latest report on federal activities.</p>
