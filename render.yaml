@@ -4,9 +4,7 @@ services:
   - type: web
     name: backend
     runtime: docker
-    # Specifies the Dockerfile for the backend
     dockerfilePath: ./backend/Dockerfile
-    # The context path for the build
     dockerContext: ./backend
     # Health check to ensure the service is running
     healthCheckPath: /docs
@@ -28,16 +26,11 @@ services:
   - type: web
     name: frontend
     runtime: docker
-    # Specifies the Dockerfile for the frontend
     dockerfilePath: ./frontend/Dockerfile
-    # The context path for the build
     dockerContext: ./frontend
     # Define the environment variable that tells the frontend
-    # where to find the backend.
+    # where to find the backend. You will set its value in the dashboard.
     envVars:
-      - key: VITE_BACKEND_URL
-        # This special value automatically uses the internal URL of your backend service
-        fromService:
-          type: web
-          name: backend
-          property: url
+      - key: VITE_BACKEND_URL # The key we will use in our React code
+        value: "https://your-backend-url.onrender.com" # Placeholder value
+
