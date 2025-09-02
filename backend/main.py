@@ -85,7 +85,7 @@ async def process_request_endpoint(request: ProcessRequest):
             subject = "Your Weekly TUFF Fed Landscape Report"
             doc_url = tools.add_content_to_gdoc(report_content, f"{report_title} - {datetime.now().strftime('%Y-%m-%d')}")
             # The tool function name was different in the provided code, correcting it here
-            tools.send_email_with_link(doc_url, subject, request.recipient_email)
+            tools.send_email(doc_url, subject, request.recipient_email)
         except Exception as e:
             print(f"Error in post-processing (GDoc/Email): {e}")
 
