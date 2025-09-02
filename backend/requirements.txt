@@ -8,6 +8,7 @@ httpx
 trafilatura
 scikit-learn
 python-dateutil
-lxml[html_clean]
+lxml
+lxml_html_clean
 
 rapidfuzz
