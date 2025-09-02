@@ -59,7 +59,7 @@ function App() {
 
     try {
       const keywords = selectedKeywords.map(option => option.value);
-      // --- Use the dynamic BACKEND_URL here ---
+      // --- Use the BACKEND_URL variable here ---
       const response = await axios.post(`${BACKEND_URL}/api/process`, {
         recipient_email: recipientEmail,
         selected_keywords: keywords
@@ -185,4 +185,5 @@ function App() {
 }
 
 export default App;
+
 
