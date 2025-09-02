@@ -1,0 +1,43 @@
+# This file tells Render how to deploy your services.
+services:
+  # Backend Service (Python/FastAPI)
+  - type: web
+    name: backend
+    runtime: docker
+    # Specifies the Dockerfile for the backend
+    dockerfilePath: ./backend/Dockerfile
+    # The context path for the build
+    dockerContext: ./backend
+    # Health check to ensure the service is running
+    healthCheckPath: /docs
+    # Define the environment variables. You will set the actual values
+    # in the Render dashboard under the 'Environment' tab for this service.
+    envVars:
+      - key: SERPER_API_KEY
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ARCADE_API_KEY
+        sync: false
+      - key: ARCADE_USER_ID
+        sync: false
+
+  # Frontend Service (React)
+  - type: web
+    name: frontend
+    runtime: docker
+    # Specifies the Dockerfile for the frontend
+    dockerfilePath: ./frontend/Dockerfile
+    # The context path for the build
+    dockerContext: ./frontend
+    # Define the environment variable that tells the frontend
+    # where to find the backend.
+    envVars:
+      - key: VITE_BACKEND_URL
+        # This special value automatically uses the internal URL of your backend service
+        fromService:
+          type: web
+          name: backend
+          property: url
