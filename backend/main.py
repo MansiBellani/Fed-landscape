@@ -19,7 +19,7 @@ report_generator = ReportGenerator()
 origins = [
     "http://localhost",
     "http://localhost:5176",
-    "https://fed-landscape-tcwb.vercel.app/"
+    "https://fed-landscape-tcwb.vercel.app"
 ]
 
 app.add_middleware(
