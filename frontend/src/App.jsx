@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import Select from 'react-select'
+import logo from "./assets/image.png";
 
 // --- IMPORTANT FOR DEPLOYMENT ---
 // When your app is live on Render, you must replace the localhost URL below
@@ -120,7 +121,7 @@ function App() {
   return (
     <div className="App">
       <header className="app-header">
-        <img src={"./assets/image.png"} alt="TUFF Logo" className="logo" />
+        <img src={logo} alt="TUFF Logo" className="logo" />
         <h1>TUFF Fed Landscape</h1>
       </header>
       <p>Select keywords to generate and email the latest report on federal activities.</p>
