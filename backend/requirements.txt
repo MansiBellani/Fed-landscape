@@ -25,7 +25,3 @@ python-dateutil
 lxml
 
 rapidfuzz
-
-transformers
-torch
-sentence-transformers
