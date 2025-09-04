@@ -15,12 +15,15 @@ searcher = TechArticleSearch()
 classifier = ContentClassifier()
 
 # Cleaned up and robust CORS configuration
-origins = [
-    "http://localhost",
-    "http://localhost:5173",
-    r"https://.*\.vercel\.app", # Safely allows your Vercel app and previews
-]
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ProcessRequest(BaseModel):
     recipient_email: str
