@@ -13,8 +13,20 @@ app = FastAPI()
 report_generator = ReportGenerator()
 searcher = TechArticleSearch()
 classifier = ContentClassifier()
-origins = ["http://localhost", "http://localhost:5173", "https://fed-landscape-tcwb.vercel.app", "https://fed-landscape-tcwb.vercel.app/"]
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+origins = [
+    "http://localhost",
+    "http://localhost:5173",
+    # This regular expression safely allows your main Vercel URL and any preview URLs
+    r"https://.*\.vercel\.app",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ProcessRequest(BaseModel):
     recipient_email: str
