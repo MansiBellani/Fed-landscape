@@ -35,7 +35,7 @@ const DISPLAY_OPTIONS = [ALL_OPTION, ...KEYWORD_OPTIONS];
 
 
 function App() {
-  const [recipientEmail, setRecipientEmail] = useState('interns@tuff.org');
+  const [recipientEmail, setRecipientEmail] = useState('tuff2603@gmail.com');
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [articles, setArticles] = useState([]);
@@ -156,6 +156,15 @@ function App() {
       <p>Select keywords to generate and email the latest report on federal activities.</p>
       
       <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="keyword-select">Filter by Keywords</label>
+          <Select
+            id="keyword-select" isMulti options={DISPLAY_OPTIONS}
+            className="react-select-container" classNamePrefix="react-select"
+            onChange={handleKeywordChange} value={selectedKeywords}
+            placeholder="Select keywords..."
+          />
+        </div>
         <div className="form-group">
             <label htmlFor="date-filter">Date Range</label>
             <select 
