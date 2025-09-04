@@ -1,33 +1,49 @@
 import os
 import httpx
 from dotenv import load_dotenv
-import trafilatura
 import asyncio
 from typing import List
+from bs4 import BeautifulSoup # Import BeautifulSoup
 
 load_dotenv()
 
 class TechArticleSearch:
-    # ... (the __init__ and _scrape_content methods remain the same) ...
     def __init__(self):
         self.api_key = os.getenv("SERPER_API_KEY")
         if not self.api_key:
             raise ValueError("SERPER_API_KEY not found.")
         self.headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
 
+    # --- UPDATED: This method now uses BeautifulSoup for safe web scraping ---
     async def _scrape_content(self, article: dict) -> dict:
-        """Asynchronously scrapes content from a single article URL."""
+        """Asynchronously scrapes content from a single article URL using BeautifulSoup."""
+        print(f"  -> Scraping: {article.get('link')}")
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
             try:
                 res = await client.get(article['link'])
-                article['full_content'] = trafilatura.extract(res.text)
+                res.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+                
+                # Use BeautifulSoup to parse the HTML
+                soup = BeautifulSoup(res.text, 'html.parser')
+
+                # A common strategy: join the text from all paragraph (<p>) tags
+                paragraphs = soup.find_all('p')
+                full_content = ' '.join([p.get_text(strip=True) for p in paragraphs])
+                
+                # If content is very short, it might be a paywall or error page, so we fall back
+                if len(full_content) < 200:
+                    print(f"  -> Warning: Short content found at {article.get('link')}. Falling back to body text.")
+                    full_content = soup.body.get_text(strip=True, separator=' ')
+
+                article['full_content'] = full_content
                 return article
-            except Exception:
+            except Exception as e:
+                print(f"  -> ❌ Failed to scrape {article.get('link')}: {e}")
                 article['full_content'] = None
                 return article
 
     async def _search_and_scrape_single_query(self, query: str, date_filter: str) -> list:
-        # ... (this method remains the same) ...
+        """Performs a search for a single query."""
         print(f"🔎 Running search query: '{query}' for date range '{date_filter}'")
         api_url = "https://google.serper.dev/news"
         payload = {"q": query, "tbs": f"qdr:{date_filter}"}
@@ -62,14 +78,13 @@ class TechArticleSearch:
                 if article.get('link') and article['link'] not in combined_articles:
                     combined_articles[article['link']] = article
         
-        unique_articles = list(combined_articles.values())[:7] # Limit to 7 to be safe
+        unique_articles = list(combined_articles.values())[:7]
         print(f"Found {len(unique_articles)} unique articles to scrape.")
         
         if not unique_articles:
             return []
 
-        # --- CHANGE: Scrape articles sequentially instead of in parallel ---
-        # This uses far less memory and prevents crashes on free hosting tiers.
+        # Scrape articles sequentially to conserve memory
         full_articles = []
         for article in unique_articles:
             scraped_article = await self._scrape_content(article)
