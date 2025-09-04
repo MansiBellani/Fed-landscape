@@ -8,6 +8,7 @@ from typing import List
 load_dotenv()
 
 class TechArticleSearch:
+    # ... (the __init__ and _scrape_content methods remain the same) ...
     def __init__(self):
         self.api_key = os.getenv("SERPER_API_KEY")
         if not self.api_key:
@@ -26,41 +27,25 @@ class TechArticleSearch:
                 return article
 
     async def _search_and_scrape_single_query(self, query: str, date_filter: str) -> list:
-        """Performs a search and scrape operation for a single query."""
+        # ... (this method remains the same) ...
         print(f"🔎 Running search query: '{query}' for date range '{date_filter}'")
         api_url = "https://google.serper.dev/news"
-        
-        # This correctly constructs the payload for the Serper API
         payload = {"q": query, "tbs": f"qdr:{date_filter}"}
-
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(api_url, headers=self.headers, json=payload)
                 response.raise_for_status()
-            
             return response.json().get("news", [])
-            
         except Exception as e:
             print(f"❌ API search for query '{query}' failed: {e}")
             return []
 
     async def run_fed_landscape_search(self, selected_keywords: List[str], date_filter: str = "w") -> list:
-        """
-        Runs a multi-pass dynamic search query based on user-selected keywords.
-        This runs multiple targeted searches in parallel for better accuracy.
-        """
         if not selected_keywords:
             return []
 
-        # --- THIS ENTIRE BLOCK OF UNUSED CODE HAS BEEN REMOVED ---
-        # The 'date_param_mapping', old 'search_query', and 'params' dictionary
-        # were leftovers from a different implementation and caused a bug.
-        # The correct logic is handled within the loop below.
-
-        # --- Create a list of highly-focused search queries ---
         search_queries = []
         for keyword in selected_keywords:
-            # Each query is now more specific and targeted
             query = (
                 f'"{keyword}" AND '
                 f'("university research funding" OR "federal grant" OR "innovation ecosystem" OR "R&D policy") AND '
@@ -68,28 +53,27 @@ class TechArticleSearch:
             )
             search_queries.append(query)
         
-        # --- Run all searches in parallel ---
-        # The date_filter ('w', 'm', 'y') is correctly passed to the single query function
         tasks = [self._search_and_scrape_single_query(q, date_filter) for q in search_queries]
         results_from_all_searches = await asyncio.gather(*tasks)
 
-        # --- Combine and de-duplicate the results ---
         combined_articles = {}
         for result_list in results_from_all_searches:
             for article in result_list:
-                # Use the article link as a unique key to avoid duplicates
                 if article.get('link') and article['link'] not in combined_articles:
                     combined_articles[article['link']] = article
         
-        unique_articles = list(combined_articles.values())[:10]
-        print(f"Found {len(unique_articles)} unique articles across all searches.")
+        unique_articles = list(combined_articles.values())[:7] # Limit to 7 to be safe
+        print(f"Found {len(unique_articles)} unique articles to scrape.")
         
-        # --- Scrape content for the unique articles ---
         if not unique_articles:
             return []
 
-        scraping_tasks = [self._scrape_content(article) for article in unique_articles]
-        full_articles = await asyncio.gather(*scraping_tasks)
+        # --- CHANGE: Scrape articles sequentially instead of in parallel ---
+        # This uses far less memory and prevents crashes on free hosting tiers.
+        full_articles = []
+        for article in unique_articles:
+            scraped_article = await self._scrape_content(article)
+            full_articles.append(scraped_article)
         
         valid_articles = [art for art in full_articles if art.get('full_content')]
         print(f"✅ Scraped content from {len(valid_articles)} valid articles.")
