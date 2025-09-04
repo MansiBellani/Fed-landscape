@@ -1,106 +1,88 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks # Import BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from data_collection import TechArticleSearch
 from classifier import ContentClassifier
-from llm_generator import ReportGenerator 
+from llm_generator import ReportGenerator
 from datetime import datetime
 from typing import List
 import tools
 
 # --- App Setup ---
 app = FastAPI()
+# (Instantiate your classes as before)
 report_generator = ReportGenerator()
 searcher = TechArticleSearch()
 classifier = ContentClassifier()
-
-origins = [
-    "http://localhost",
-    "http://localhost:5173",
-    "https://fed-landscape-tcwb.vercel.app",
-    "https://fed-landscape-tcwb.vercel.app/"
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# (CORSMiddleware setup remains the same)
+origins = ["http://localhost", "http://localhost:5173", "https://fed-landscape-tcwb.vercel.app", "https://fed-landscape-tcwb.vercel.app/"]
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 class ProcessRequest(BaseModel):
     recipient_email: str
     selected_keywords: List[str] = []
     date_filter: str = "w"
 
-def is_article_recent(article_date: str) -> bool:
-    date_str = article_date.lower()
-    current_year = str(datetime.now().year)
-    if any(term in date_str for term in ['hour', 'day', 'week', 'ago', 'minute']) or current_year in date_str:
-        return True
-    if any(year in date_str for year in ['2019', '2020', '2021', '2022', '2023']):
-        return False
-    return True
-
-@app.post("/api/process")
-async def process_request_endpoint(request: ProcessRequest):
+# --- NEW: This function holds all the slow logic and will run in the background ---
+async def generate_and_email_report(keywords: List[str], date_filter: str, email: str):
     try:
-        articles = await searcher.run_fed_landscape_search(request.selected_keywords, request.date_filter)
+        print("🚀 Background task started: Searching for articles...")
+        articles = await searcher.run_fed_landscape_search(keywords, date_filter)
         
-        recent_articles = [article for article in articles if is_article_recent(article.get('date', ''))]
-        if not recent_articles:
-            return {"status": "success", "articles": [], "report_content": "", "message": "No recent articles found."}
+        if not articles:
+            print("⏹️ Background task finished: No articles found.")
+            # Optional: send an email saying no articles were found
+            return
 
         relevance_context = (
             "A relevant article discusses federal activities like new grants, programs, or policy "
-            f"affecting universities and innovation ecosystems related to {', '.join(request.selected_keywords)}."
+            f"affecting universities and innovation ecosystems related to {', '.join(keywords)}."
         )
 
-        for article in recent_articles:
+        for article in articles:
             article['relevance_score'] = classifier.evaluate_relevance(
                 article.get('full_content', ''), relevance_context
             )
 
-        sorted_articles = sorted(recent_articles, key=lambda x: x.get('relevance_score', 0), reverse=True)
+        sorted_articles = sorted(articles, key=lambda x: x.get('relevance_score', 0), reverse=True)
         
-        print("🤖 Generating final intelligence report using GPT-4o...")
+        print("🤖 Generating final intelligence report...")
         report_title = "TUFF Fed Landscape Report"
-        report_content = f"# {report_title}\n\n"
-        report_content += "This report summarizes recent federal activities affecting universities and innovation ecosystems.\n\n---\n\n"
+        report_content = f"# {report_title}\n\nThis report summarizes recent federal activities.\n\n---\n\n"
         
         for article in sorted_articles[:7]:
-            # --- CHANGE 1: Call the new method to get both summaries ---
             full_summary = report_generator.generate_full_summary(article.get('full_content', ''))
-            paragraph_summary = full_summary.get('paragraph', 'Summary not available.')
-            point_summary = full_summary.get('points', 'Key points not available.')
+            paragraph = full_summary.get('paragraph', 'Summary not available.')
+            points = full_summary.get('points', 'Key points not available.')
             
-            # --- CHANGE 2: Add both summaries to the report content ---
             report_content += f"## {article.get('title', 'No Title')}\n"
             report_content += f"**Source:** {article.get('source', 'N/A')}\n"
             report_content += f"**Relevance:** {int(article.get('relevance_score', 0) * 100)}%\n\n"
-            
-            # Add the new 1-2 sentence paragraph summary here
-            report_content += f"{paragraph_summary}\n\n" 
-            
-            # Add the 5-point summary below
-            report_content += f"**Key Points:**\n{point_summary}\n\n"
-            
+            report_content += f"{paragraph}\n\n**Key Points:**\n{points}\n\n"
             report_content += f"[Read Full Article]({article.get('link', '#')})\n\n---\n\n"
 
-        try:
-            subject = "Your Weekly TUFF Fed Landscape Report"
-            doc_url = tools.add_content_to_gdoc(report_content, f"{report_title} - {datetime.now().strftime('%Y-%m-%d')}")
-            tools.send_email(doc_url, subject, request.recipient_email)
-        except Exception as e:
-            print(f"Error in post-processing (GDoc/Email): {e}")
-
-        return {
-            "status": "success",
-            "articles": sorted_articles,
-            "report_content": report_content,
-            "message": f"Success! Generated a report from {len(sorted_articles)} articles."
-        }
+        print("✉️ Creating Google Doc and sending email...")
+        subject = "Your TUFF Fed Landscape Report is Ready"
+        doc_url = tools.add_content_to_gdoc(report_content, f"{report_title} - {datetime.now().strftime('%Y-%m-%d')}")
+        tools.send_email(doc_url, subject, email)
+        print("✅ Background task completed successfully!")
 
     except Exception as e:
-        return {"status": "error", "message": str(e), "articles": [], "report_content": ""}
+        print(f"❌ Error in background task: {e}")
+        # Optional: send an error email to the user or admin
+        tools.send_email("An error occurred during report generation. Please try again later.", "Report Generation Failed", email)
+
+
+@app.post("/api/process")
+async def process_request_endpoint(request: ProcessRequest, background_tasks: BackgroundTasks):
+    # This endpoint is now very fast. It just adds the job and returns.
+    background_tasks.add_task(
+        generate_and_email_report,
+        request.selected_keywords,
+        request.date_filter,
+        request.recipient_email
+    )
+    return {
+        "status": "success",
+        "message": "Report generation started! You will receive an email shortly."
+    }
