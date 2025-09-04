@@ -18,8 +18,6 @@ function App() {
   const [recipientEmail, setRecipientEmail] = useState('tuff2603@gmail.com');
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [articles, setArticles] = useState([]);
-  const [reportContent, setReportContent] = useState('');
   const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [dateFilter, setDateFilter] = useState('w');
 
@@ -49,9 +47,7 @@ function App() {
     }
     
     setIsLoading(true);
-    setStatus('Searching, classifying, and summarizing articles...');
-    setArticles([]);
-    setReportContent('');
+    setStatus('');
 
     try {
       const response = await axios.post(`${BACKEND_URL}/api/process`, {
@@ -59,52 +55,16 @@ function App() {
         selected_keywords: keywordsToSend,
         date_filter: dateFilter
       });
-
       if (response.data.status === 'success') {
-        setArticles(response.data.articles);
-        setReportContent(response.data.report_content);
         setStatus(response.data.message);
       } else {
-        setStatus(response.data.message || 'An unknown error occurred.');
+        setStatus(response.data.message);
       }
     } catch (error) {
       setStatus('An error occurred. Please check the backend console.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const renderReport = (content) => {
-    if (!content) return null;
-    const reportSections = content.split('---').slice(1).filter(s => s.trim());
-
-    return reportSections.map((section, index) => {
-      const lines = section.trim().split('\n').filter(l => l.trim());
-      const title = lines.find(l => l.startsWith('## '))?.substring(3) || 'No Title';
-      const source = lines.find(l => l.startsWith('**Source:'))?.replace('**Source:**', '').trim() || 'N/A';
-      const relevance = lines.find(l => l.startsWith('**Relevance:'))?.replace('**Relevance:**', '').trim() || 'N/A';
-      const paragraph = lines.find(l => !l.startsWith('**') && !l.startsWith('##') && !l.startsWith('[') && !l.startsWith('-')) || '';
-      const keyPointsHeader = lines.find(l => l.startsWith('**Key Points:')) ? '**Key Points:**' : null;
-      const keyPoints = lines.filter(l => l.startsWith('- '));
-      const linkMatch = lines.find(l => l.startsWith('[Read'))?.match(/\[(.*?)\]\((.*?)\)/);
-      const linkUrl = linkMatch ? linkMatch[2] : '#';
-
-      return (
-        <div key={index} className="report-item">
-          <h3>{title}</h3>
-          <div className="report-item-meta">
-            <span><strong>Source:</strong> {source}</span>
-            <span className="meta-relevance"><strong>Relevance:</strong> {relevance}</span>
-          </div>
-          <p>{paragraph}</p>
-          {keyPointsHeader && <h4>Key Points</h4>}
-          <ul className="summary-list">
-            {keyPoints.map((line, sIndex) => <li key={sIndex}>{line.substring(2)}</li>)}
-          </ul>
-          <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="report-link">Read Full Article</a>
-        </div>
-      );
-    });
   };
 
   return (
@@ -149,35 +109,7 @@ function App() {
           {isLoading ? <><div className="spinner"></div> Processing...</> : 'Generate & Send Report'}
         </button>
       </form>
-
       {status && <div className="status">{status}</div>}
-      
-      {reportContent && (
-        <div className="report-view">
-          <h2>Generated Intelligence Report</h2>
-          <div className="report-content">
-            {renderReport(reportContent)}
-          </div>
-        </div>
-      )}
-
-      {articles.length > 0 && (
-        <div className="results-container">
-          <h2>Source Articles (Ranked by Relevance)</h2>
-          {articles.map((article, index) => (
-            <div className="article-card" key={index}>
-              <div className="article-header">
-                <h3><a href={article.link} target="_blank" rel="noopener noreferrer">{article.title}</a></h3>
-                <span className="relevance-score">
-                  {Math.round(article.relevance_score * 100)}% Relevant
-                </span>
-              </div>
-              <p className="article-source">Source: {article.source} | Published: {article.date}</p>
-              <p className="article-snippet">{article.snippet}</p>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
