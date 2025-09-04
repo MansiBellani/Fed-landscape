@@ -41,6 +41,7 @@ function App() {
   const [articles, setArticles] = useState([]);
   const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [reportContent, setReportContent] = useState('');
+  const [dateFilter, setDateFilter] = useState('w');
 
   // --- CHANGE 2: Update the keyword change handler to manage the 'All' option ---
   const handleKeywordChange = (selectedOptions, actionMeta) => {
@@ -156,17 +157,17 @@ function App() {
       
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="keyword-select">Filter by Keywords</label>
-          <Select
-            id="keyword-select"
-            isMulti
-            options={DISPLAY_OPTIONS}       // --- CHANGE 4: Use the new options array ---
-            className="react-select-container"
-            classNamePrefix="react-select"
-            onChange={handleKeywordChange}
-            value={selectedKeywords}        // --- CHANGE 5: Control the component's value ---
-            placeholder="Select keywords..."
-          />
+            <label htmlFor="date-filter">Date Range</label>
+            <select 
+                id="date-filter" 
+                value={dateFilter} 
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="date-filter-select" 
+            >
+                <option value="w">Past Week</option>
+                <option value="m">Past Month</option>
+                <option value="y">Past Year</option>
+            </select>
         </div>
         
         <div className="form-group">
