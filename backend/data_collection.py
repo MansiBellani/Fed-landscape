@@ -27,7 +27,6 @@ class TechArticleSearch:
                 full_content = ' '.join([p.get_text(strip=True) for p in paragraphs])
                 
                 if len(full_content) < 200:
-                    print(f"  -> Warning: Short content found at {article.get('link')}. Falling back to body text.")
                     full_content = soup.body.get_text(strip=True, separator=' ')
 
                 article['full_content'] = full_content
@@ -38,7 +37,6 @@ class TechArticleSearch:
                 return article
 
     async def _search_and_scrape_single_query(self, query: str, date_filter: str) -> list:
-        """Performs a search for a single query."""
         print(f"🔎 Running search query: '{query}' for date range '{date_filter}'")
         api_url = "https://google.serper.dev/news"
         payload = {"q": query, "tbs": f"qdr:{date_filter}"}
