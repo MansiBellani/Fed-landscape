@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from data_collection import TechArticleSearch
 from classifier import ContentClassifier
-from llm_generator import ReportGenerator
+from llm_generator import ReportGenerator 
 from datetime import datetime
 from typing import List
 import tools
@@ -14,13 +14,11 @@ report_generator = ReportGenerator()
 searcher = TechArticleSearch()
 classifier = ContentClassifier()
 
-# --- THIS IS THE CRUCIAL FIX ---
-# We are adding a version of the URL with a trailing slash to be safe.
 origins = [
     "http://localhost",
     "http://localhost:5173",
-    "https://fed-landscape-tcwb.vercel.app", # The original URL
-    "https://fed-landscape-tcwb.vercel.app/" # Added version with trailing slash
+    "https://fed-landscape-tcwb.vercel.app",
+    "https://fed-landscape-tcwb.vercel.app/"
 ]
 
 app.add_middleware(
@@ -41,7 +39,6 @@ def is_article_recent(article_date: str) -> bool:
     current_year = str(datetime.now().year)
     if any(term in date_str for term in ['hour', 'day', 'week', 'ago', 'minute']) or current_year in date_str:
         return True
-    # Simplified the year check for clarity
     if any(year in date_str for year in ['2019', '2020', '2021', '2022', '2023']):
         return False
     return True
@@ -73,18 +70,27 @@ async def process_request_endpoint(request: ProcessRequest):
         report_content += "This report summarizes recent federal activities affecting universities and innovation ecosystems.\n\n---\n\n"
         
         for article in sorted_articles[:7]:
-            summary = report_generator.summarize_article_in_points(article.get('full_content', ''))
+            # --- CHANGE 1: Call the new method to get both summaries ---
+            full_summary = report_generator.generate_full_summary(article.get('full_content', ''))
+            paragraph_summary = full_summary.get('paragraph', 'Summary not available.')
+            point_summary = full_summary.get('points', 'Key points not available.')
             
+            # --- CHANGE 2: Add both summaries to the report content ---
             report_content += f"## {article.get('title', 'No Title')}\n"
             report_content += f"**Source:** {article.get('source', 'N/A')}\n"
             report_content += f"**Relevance:** {int(article.get('relevance_score', 0) * 100)}%\n\n"
-            report_content += f"**Summary:**\n{summary}\n\n"
+            
+            # Add the new 1-2 sentence paragraph summary here
+            report_content += f"{paragraph_summary}\n\n" 
+            
+            # Add the 5-point summary below
+            report_content += f"**Key Points:**\n{point_summary}\n\n"
+            
             report_content += f"[Read Full Article]({article.get('link', '#')})\n\n---\n\n"
 
         try:
             subject = "Your Weekly TUFF Fed Landscape Report"
             doc_url = tools.add_content_to_gdoc(report_content, f"{report_title} - {datetime.now().strftime('%Y-%m-%d')}")
-            # The tool function name was different in the provided code, correcting it here
             tools.send_email(doc_url, subject, request.recipient_email)
         except Exception as e:
             print(f"Error in post-processing (GDoc/Email): {e}")
@@ -98,4 +104,3 @@ async def process_request_endpoint(request: ProcessRequest):
 
     except Exception as e:
         return {"status": "error", "message": str(e), "articles": [], "report_content": ""}
-
