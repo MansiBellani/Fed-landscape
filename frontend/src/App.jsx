@@ -18,13 +18,27 @@ function App() {
   const [recipientEmail, setRecipientEmail] = useState('tuff2603@gmail.com');
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  // RE-ADDED: State for articles and reportContent to display results in the UI
   const [articles, setArticles] = useState([]);
   const [reportContent, setReportContent] = useState('');
   const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [dateFilter, setDateFilter] = useState('w');
 
-  const handleKeywordChange = (selectedOptions, actionMeta) => { /* No changes needed here */ };
+  const handleKeywordChange = (selectedOptions, actionMeta) => {
+    if (actionMeta.action === 'select-option' && actionMeta.option.value === 'all') {
+      setSelectedKeywords(DISPLAY_OPTIONS);
+    } else if (actionMeta.action === 'deselect-option' && actionMeta.option.value === 'all') {
+      setSelectedKeywords([]);
+    } else if (actionMeta.action === 'clear') {
+        setSelectedKeywords([]);
+    } else {
+      let newSelection = selectedOptions.filter(option => option.value !== 'all');
+      if (newSelection.length === KEYWORD_OPTIONS.length) {
+        setSelectedKeywords(DISPLAY_OPTIONS);
+      } else {
+        setSelectedKeywords(newSelection);
+      }
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -36,7 +50,6 @@ function App() {
     
     setIsLoading(true);
     setStatus('Searching, classifying, and summarizing articles...');
-    // Clear previous results
     setArticles([]);
     setReportContent('');
 
@@ -47,7 +60,6 @@ function App() {
         date_filter: dateFilter
       });
 
-      // UPDATED: Set state with the report data returned from the API
       if (response.data.status === 'success') {
         setArticles(response.data.articles);
         setReportContent(response.data.report_content);
@@ -62,7 +74,6 @@ function App() {
     }
   };
 
-  // RE-ADDED: Function to render the report from markdown-like text
   const renderReport = (content) => {
     const reportSections = content.split('---').slice(1).filter(s => s.trim());
 
@@ -104,12 +115,42 @@ function App() {
       <p>Select keywords to generate and email the latest report on federal activities.</p>
       
       <form onSubmit={handleSubmit}>
-         {/* Form fields are unchanged */}
+        <div className="form-group">
+          <label htmlFor="keyword-select">Filter by Keywords</label>
+          <Select
+            id="keyword-select" isMulti options={DISPLAY_OPTIONS}
+            className="react-select-container" classNamePrefix="react-select"
+            onChange={handleKeywordChange} value={selectedKeywords}
+            placeholder="Select keywords..."
+          />
+        </div>
+        <div className="form-group">
+            <label htmlFor="date-filter">Date Range</label>
+            <select 
+                id="date-filter" 
+                value={dateFilter} 
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="date-filter-select" 
+            >
+                <option value="w">Past Week</option>
+                <option value="m">Past Month</option>
+                <option value="y">Past Year</option>
+            </select>
+        </div>
+        <div className="form-group">
+          <label htmlFor="email">Recipient's Email</label>
+          <input
+            type="email" id="email" value={recipientEmail}
+            onChange={(e) => setRecipientEmail(e.target.value)}
+          />
+        </div>
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? <><div className="spinner"></div> Processing...</> : 'Generate & Send Report'}
+        </button>
       </form>
 
       {status && <div className="status">{status}</div>}
       
-      {/* RE-ADDED: JSX to display the generated report and source articles */}
       {reportContent && (
         <div className="report-view">
           <h2>Generated Intelligence Report</h2>
@@ -124,7 +165,14 @@ function App() {
           <h2>Source Articles (Ranked by Relevance)</h2>
           {articles.map((article, index) => (
             <div className="article-card" key={index}>
-              {/* ... article card JSX ... */}
+              <div className="article-header">
+                <h3><a href={article.link} target="_blank" rel="noopener noreferrer">{article.title}</a></h3>
+                <span className="relevance-score">
+                  {Math.round(article.relevance_score * 100)}% Relevant
+                </span>
+              </div>
+              <p className="article-source">Source: {article.source} | Published: {article.date}</p>
+              <p className="article-snippet">{article.snippet}</p>
             </div>
           ))}
         </div>
