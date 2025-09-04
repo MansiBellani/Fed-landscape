@@ -3,7 +3,7 @@ import httpx
 from dotenv import load_dotenv
 import asyncio
 from typing import List
-from bs4 import BeautifulSoup # Import BeautifulSoup
+from bs4 import BeautifulSoup
 
 load_dotenv()
 
@@ -14,23 +14,18 @@ class TechArticleSearch:
             raise ValueError("SERPER_API_KEY not found.")
         self.headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
 
-    # --- UPDATED: This method now uses BeautifulSoup for safe web scraping ---
     async def _scrape_content(self, article: dict) -> dict:
         """Asynchronously scrapes content from a single article URL using BeautifulSoup."""
         print(f"  -> Scraping: {article.get('link')}")
         async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
             try:
                 res = await client.get(article['link'])
-                res.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+                res.raise_for_status()
                 
-                # Use BeautifulSoup to parse the HTML
                 soup = BeautifulSoup(res.text, 'html.parser')
-
-                # A common strategy: join the text from all paragraph (<p>) tags
                 paragraphs = soup.find_all('p')
                 full_content = ' '.join([p.get_text(strip=True) for p in paragraphs])
                 
-                # If content is very short, it might be a paywall or error page, so we fall back
                 if len(full_content) < 200:
                     print(f"  -> Warning: Short content found at {article.get('link')}. Falling back to body text.")
                     full_content = soup.body.get_text(strip=True, separator=' ')
@@ -84,7 +79,6 @@ class TechArticleSearch:
         if not unique_articles:
             return []
 
-        # Scrape articles sequentially to conserve memory
         full_articles = []
         for article in unique_articles:
             scraped_article = await self._scrape_content(article)
