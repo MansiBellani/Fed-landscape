@@ -81,7 +81,7 @@ class TechArticleSearch:
                 if article.get('link') and article['link'] not in combined_articles:
                     combined_articles[article['link']] = article
         
-        unique_articles = list(combined_articles.values())
+        unique_articles = list(combined_articles.values())[:10]
         print(f"Found {len(unique_articles)} unique articles across all searches.")
         
         # --- Scrape content for the unique articles ---
