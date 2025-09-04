@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import Select from 'react-select'
+import Select from 'react-select';
 import logo from "./assets/image.png";
 
 // --- IMPORTANT FOR DEPLOYMENT ---
-// When your app is live on Render, you must replace the localhost URL below
-// with the actual URL of your deployed backend service.
-// Example: const BACKEND_URL = 'https://your-backend-name.onrender.com';
 const BACKEND_URL = 'https://backend-k4sq.onrender.com';
+
+// --- CHANGE 1: Define a separate 'All' option and the main keyword list ---
+const ALL_OPTION = { value: "all", label: "Select All Keywords" };
 
 const KEYWORD_OPTIONS = [
   "NSF Recompete Pilot Program",
@@ -30,6 +30,10 @@ const KEYWORD_OPTIONS = [
   "Economic Impact"
 ].map(keyword => ({ value: keyword, label: keyword }));
 
+// Combine the 'All' option with the rest for the dropdown display
+const DISPLAY_OPTIONS = [ALL_OPTION, ...KEYWORD_OPTIONS];
+
+
 function App() {
   const [recipientEmail, setRecipientEmail] = useState('interns@tuff.org');
   const [status, setStatus] = useState('');
@@ -38,9 +42,31 @@ function App() {
   const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [reportContent, setReportContent] = useState('');
 
-  const handleKeywordChange = (selectedOptions) => {
-    setSelectedKeywords(selectedOptions || []);
+  // --- CHANGE 2: Update the keyword change handler to manage the 'All' option ---
+  const handleKeywordChange = (selectedOptions, actionMeta) => {
+    if (actionMeta.action === 'select-option' && actionMeta.option.value === 'all') {
+      // User selected "All", so we select everything including the "All" option itself
+      setSelectedKeywords(DISPLAY_OPTIONS);
+    } else if (actionMeta.action === 'deselect-option' && actionMeta.option.value === 'all') {
+      // User deselected "All", so we clear the selection
+      setSelectedKeywords([]);
+    } else if (actionMeta.action === 'clear') {
+        // User clicked the 'x' to clear everything
+        setSelectedKeywords([]);
+    } else {
+      // For any other action (e.g., deselecting a single keyword)
+      // Filter out the 'All' option because the selection is no longer "all"
+      let newSelection = selectedOptions.filter(option => option.value !== 'all');
+
+      // If the user manually selects all individual keywords, also select the "All" option
+      if (newSelection.length === KEYWORD_OPTIONS.length) {
+        setSelectedKeywords(DISPLAY_OPTIONS);
+      } else {
+        setSelectedKeywords(newSelection);
+      }
+    }
   };
+
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -48,7 +74,13 @@ function App() {
       setStatus('Please enter a recipient email.');
       return;
     }
-    if (selectedKeywords.length === 0) {
+    
+    // --- CHANGE 3: Filter out the special 'all' value before sending to the backend ---
+    const keywordsToSend = selectedKeywords
+      .filter(option => option.value !== 'all')
+      .map(option => option.value);
+        
+    if (keywordsToSend.length === 0) {
       setStatus('Please select at least one keyword to search.');
       return;
     }
@@ -59,11 +91,9 @@ function App() {
     setStatus('Searching, classifying, and summarizing articles...');
 
     try {
-      const keywords = selectedKeywords.map(option => option.value);
-      // --- Use the BACKEND_URL variable here ---
       const response = await axios.post(`${BACKEND_URL}/api/process`, {
         recipient_email: recipientEmail,
-        selected_keywords: keywords
+        selected_keywords: keywordsToSend // Use the filtered list
       });
 
       if (response.data.status === 'success') {
@@ -80,7 +110,6 @@ function App() {
     }
   };
 
-  // --- NEW: Advanced Report Rendering Function ---
   const renderReport = (content) => {
     const reportSections = content.split('---').slice(1).filter(s => s.trim());
 
@@ -105,7 +134,6 @@ function App() {
           </div>
           <ul className="summary-list">
             {summaryLines.map((line, sIndex) => {
-              // Clean the line of markdown characters like "- **...**"
               const cleanedLine = line.replace(/^- \*\*(.*)\*\*$/, '$1').replace(/^- /, '');
               return <li key={sIndex}>{cleanedLine}</li>;
             })}
@@ -132,10 +160,11 @@ function App() {
           <Select
             id="keyword-select"
             isMulti
-            options={KEYWORD_OPTIONS}
+            options={DISPLAY_OPTIONS}       // --- CHANGE 4: Use the new options array ---
             className="react-select-container"
             classNamePrefix="react-select"
             onChange={handleKeywordChange}
+            value={selectedKeywords}        // --- CHANGE 5: Control the component's value ---
             placeholder="Select keywords..."
           />
         </div>
@@ -186,5 +215,3 @@ function App() {
 }
 
 export default App;
-
-
