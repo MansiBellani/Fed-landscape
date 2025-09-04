@@ -21,7 +21,6 @@ class ProcessRequest(BaseModel):
     selected_keywords: List[str] = []
     date_filter: str = "w"
 
-# REVERTED: The endpoint now handles the entire process and returns the report content
 @app.post("/api/process")
 async def process_request_endpoint(request: ProcessRequest):
     try:
