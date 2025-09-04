@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks # Import BackgroundTasks
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from data_collection import TechArticleSearch
@@ -10,11 +10,9 @@ import tools
 
 # --- App Setup ---
 app = FastAPI()
-# (Instantiate your classes as before)
 report_generator = ReportGenerator()
 searcher = TechArticleSearch()
 classifier = ContentClassifier()
-# (CORSMiddleware setup remains the same)
 origins = ["http://localhost", "http://localhost:5173", "https://fed-landscape-tcwb.vercel.app", "https://fed-landscape-tcwb.vercel.app/"]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
@@ -23,20 +21,19 @@ class ProcessRequest(BaseModel):
     selected_keywords: List[str] = []
     date_filter: str = "w"
 
-# --- NEW: This function holds all the slow logic and will run in the background ---
-async def generate_and_email_report(keywords: List[str], date_filter: str, email: str):
+# REVERTED: The endpoint now handles the entire process and returns the report content
+@app.post("/api/process")
+async def process_request_endpoint(request: ProcessRequest):
     try:
-        print("🚀 Background task started: Searching for articles...")
-        articles = await searcher.run_fed_landscape_search(keywords, date_filter)
+        print("🚀 Request received: Searching for articles...")
+        articles = await searcher.run_fed_landscape_search(request.selected_keywords, request.date_filter)
         
         if not articles:
-            print("⏹️ Background task finished: No articles found.")
-            # Optional: send an email saying no articles were found
-            return
+            return {"status": "success", "articles": [], "report_content": "", "message": "No recent articles found."}
 
         relevance_context = (
             "A relevant article discusses federal activities like new grants, programs, or policy "
-            f"affecting universities and innovation ecosystems related to {', '.join(keywords)}."
+            f"affecting universities and innovation ecosystems related to {', '.join(request.selected_keywords)}."
         )
 
         for article in articles:
@@ -64,25 +61,16 @@ async def generate_and_email_report(keywords: List[str], date_filter: str, email
         print("✉️ Creating Google Doc and sending email...")
         subject = "Your TUFF Fed Landscape Report is Ready"
         doc_url = tools.add_content_to_gdoc(report_content, f"{report_title} - {datetime.now().strftime('%Y-%m-%d')}")
-        tools.send_email(doc_url, subject, email)
-        print("✅ Background task completed successfully!")
+        tools.send_email(doc_url, subject, request.recipient_email)
+        print("✅ Process completed successfully!")
+
+        return {
+            "status": "success",
+            "articles": sorted_articles,
+            "report_content": report_content,
+            "message": f"Success! Report generated from {len(sorted_articles)} articles and sent."
+        }
 
     except Exception as e:
-        print(f"❌ Error in background task: {e}")
-        # Optional: send an error email to the user or admin
-        tools.send_email("An error occurred during report generation. Please try again later.", "Report Generation Failed", email)
-
-
-@app.post("/api/process")
-async def process_request_endpoint(request: ProcessRequest, background_tasks: BackgroundTasks):
-    # This endpoint is now very fast. It just adds the job and returns.
-    background_tasks.add_task(
-        generate_and_email_report,
-        request.selected_keywords,
-        request.date_filter,
-        request.recipient_email
-    )
-    return {
-        "status": "success",
-        "message": "Report generation started! You will receive an email shortly."
-    }
+        print(f"❌ An error occurred during the process: {e}")
+        return {"status": "error", "message": "An unexpected error occurred on the server.", "articles": [], "report_content": ""}
