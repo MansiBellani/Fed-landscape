@@ -75,6 +75,7 @@ function App() {
   };
 
   const renderReport = (content) => {
+    if (!content) return null;
     const reportSections = content.split('---').slice(1).filter(s => s.trim());
 
     return reportSections.map((section, index) => {
