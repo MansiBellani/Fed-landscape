@@ -18,6 +18,8 @@ origins = [
     "http://localhost:5173",
     # This regular expression safely allows your main Vercel URL and any preview URLs
     r"https://.*\.vercel\.app",
+    "https://fed-landscape-tcwb.vercel.app/",
+    "https://fed-landscape-tcwb.vercel.app"
 ]
 
 app.add_middleware(
