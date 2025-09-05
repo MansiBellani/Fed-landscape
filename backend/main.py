@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from data_collection import TechArticleSearch
@@ -14,87 +14,74 @@ report_generator = ReportGenerator()
 searcher = TechArticleSearch()
 classifier = ContentClassifier()
 
-# --- THIS IS THE CRUCIAL FIX ---
-# We are adding a version of the URL with a trailing slash to be safe.
-origins = [
-    "http://localhost",
-    "http://localhost:5173",
-    "https://fed-landscape-tcwb.vercel.app", # The original URL
-    "https://fed-landscape-tcwb.vercel.app/" # Added version with trailing slash
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Final, robust CORS configuration to prevent connection errors
+origins = ["*"] 
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 class ProcessRequest(BaseModel):
     recipient_email: str
     selected_keywords: List[str] = []
     date_filter: str = "w"
 
-def is_article_recent(article_date: str) -> bool:
-    date_str = article_date.lower()
-    current_year = str(datetime.now().year)
-    if any(term in date_str for term in ['hour', 'day', 'week', 'ago', 'minute']) or current_year in date_str:
-        return True
-    # Simplified the year check for clarity
-    if any(year in date_str for year in ['2019', '2020', '2021', '2022', '2023']):
-        return False
-    return True
-
-@app.post("/api/process")
-async def process_request_endpoint(request: ProcessRequest):
+# This function contains all the heavy work and runs safely in the background
+async def generate_and_email_report(keywords: List[str], date_filter: str, email: str):
     try:
-        articles = await searcher.run_fed_landscape_search(request.selected_keywords, request.date_filter)
+        print("🚀 Background task started: Searching for articles...")
+        articles = await searcher.run_fed_landscape_search(keywords, date_filter)
         
-        recent_articles = [article for article in articles if is_article_recent(article.get('date', ''))]
-        if not recent_articles:
-            return {"status": "success", "articles": [], "report_content": "", "message": "No recent articles found."}
+        if not articles:
+            print("⏹️ Background task finished: No articles found.")
+            tools.send_email("No new articles were found for your selected keywords.", "Your TUFF Fed Landscape Report", email)
+            return
 
+        print(f"🔬 Classifying {len(articles)} articles for relevance...")
         relevance_context = (
             "A relevant article discusses federal activities like new grants, programs, or policy "
-            f"affecting universities and innovation ecosystems related to {', '.join(request.selected_keywords)}."
+            f"affecting universities and innovation ecosystems related to {', '.join(keywords)}."
         )
-
-        for article in recent_articles:
+        for article in articles:
             article['relevance_score'] = classifier.evaluate_relevance(
                 article.get('full_content', ''), relevance_context
             )
 
-        sorted_articles = sorted(recent_articles, key=lambda x: x.get('relevance_score', 0), reverse=True)
+        sorted_articles = sorted(articles, key=lambda x: x.get('relevance_score', 0), reverse=True)
         
-        print("🤖 Generating final intelligence report using GPT-4o...")
+        print("🤖 Generating final intelligence report...")
         report_title = "TUFF Fed Landscape Report"
-        report_content = f"# {report_title}\n\n"
-        report_content += "This report summarizes recent federal activities affecting universities and innovation ecosystems.\n\n---\n\n"
+        report_content = f"# {report_title}\n\nThis report summarizes recent federal activities.\n\n---\n\n"
         
         for article in sorted_articles[:7]:
-            summary = report_generator.summarize_article_in_points(article.get('full_content', ''))
+            full_summary = report_generator.generate_full_summary(article.get('full_content', ''))
+            paragraph = full_summary.get('paragraph', 'Summary not available.')
+            points = full_summary.get('points', 'Key points not available.')
             
             report_content += f"## {article.get('title', 'No Title')}\n"
             report_content += f"**Source:** {article.get('source', 'N/A')}\n"
             report_content += f"**Relevance:** {int(article.get('relevance_score', 0) * 100)}%\n\n"
-            report_content += f"**Summary:**\n{summary}\n\n"
+            report_content += f"{paragraph}\n\n**Key Points:**\n{points}\n\n"
             report_content += f"[Read Full Article]({article.get('link', '#')})\n\n---\n\n"
 
-        try:
-            subject = "Your Weekly TUFF Fed Landscape Report"
-            doc_url = tools.add_content_to_gdoc(report_content, f"{report_title} - {datetime.now().strftime('%Y-%m-%d')}")
-            # The tool function name was different in the provided code, correcting it here
-            tools.send_email(doc_url, subject, request.recipient_email)
-        except Exception as e:
-            print(f"Error in post-processing (GDoc/Email): {e}")
-
-        return {
-            "status": "success",
-            "articles": sorted_articles,
-            "report_content": report_content,
-            "message": f"Success! Generated a report from {len(sorted_articles)} articles."
-        }
+        print("✉️ Creating Google Doc and sending email...")
+        subject = "Your TUFF Fed Landscape Report is Ready"
+        doc_url = tools.add_content_to_gdoc(report_content, f"{report_title} - {datetime.now().strftime('%Y-%m-%d')}")
+        tools.send_email(doc_url, subject, email)
+        print("✅ Background task completed successfully!")
 
     except Exception as e:
-        return {"status": "error", "message": str(e), "articles": [], "report_content": ""}
+        print(f"❌ Error in background task: {e}")
+        tools.send_email(f"An error occurred during report generation: {e}", "Report Generation Failed", email)
+
+# The API endpoint is now fast and reliable. It kicks off the background job.
+@app.post("/api/process")
+async def process_request_endpoint(request: ProcessRequest, background_tasks: BackgroundTasks):
+    background_tasks.add_task(
+        generate_and_email_report,
+        request.selected_keywords,
+        request.date_filter,
+        request.recipient_email
+    )
+    return {
+        "status": "success",
+        "message": "Report generation started! You will receive an email in a few minutes."
+    }
+
