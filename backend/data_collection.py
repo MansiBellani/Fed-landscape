@@ -12,12 +12,16 @@ class TechArticleSearch:
         self.api_key = os.getenv("SERPER_API_KEY")
         if not self.api_key:
             raise ValueError("SERPER_API_KEY not found.")
-        self.headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
+        # Common browser user-agent to avoid being blocked
+        self.scraping_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        self.search_headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
 
     async def _scrape_content(self, article: dict) -> dict:
-        """Asynchronously scrapes content from a single article URL using BeautifulSoup."""
+        """Asynchronously scrapes content from a single article URL using a browser-like header."""
         print(f"  -> Scraping: {article.get('link')}")
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
+        async with httpx.AsyncClient(headers=self.scraping_headers, follow_redirects=True, timeout=20.0) as client:
             try:
                 res = await client.get(article['link'])
                 res.raise_for_status()
@@ -42,7 +46,7 @@ class TechArticleSearch:
         payload = {"q": query, "tbs": f"qdr:{date_filter}"}
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(api_url, headers=self.headers, json=payload)
+                response = await client.post(api_url, headers=self.search_headers, json=payload)
                 response.raise_for_status()
             return response.json().get("news", [])
         except Exception as e:
@@ -85,3 +89,4 @@ class TechArticleSearch:
         valid_articles = [art for art in full_articles if art.get('full_content')]
         print(f"✅ Scraped content from {len(valid_articles)} valid articles.")
         return valid_articles
+
