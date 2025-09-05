@@ -42,7 +42,7 @@ def add_content_to_gdoc(content: str, file_name: str = "AI Intelligence Report")
     print(f"TOOL CALLED: Creating Google Doc titled '{file_name}'...")
     try:
         result = client.tools.execute(
-            tool_name="GoogleDocs.CreateDocumentFromText@4.1.0",
+            tool_name="GoogleDocs.CreateDocumentFromText@4.0.0",
             input={"title": file_name, "text_content": content},
             user_id=USER_ID,
         )
@@ -80,4 +80,3 @@ def send_email(email_body: str, subject: str, recipient: str):
     except Exception as e:
         print(f"❌ ERROR: Arcade tool execution failed: {e}")
         return False
-
