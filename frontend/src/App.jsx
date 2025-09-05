@@ -61,8 +61,10 @@ function App() {
       });
 
       if (response.data.status === 'success') {
-        setArticles(response.data.articles);
-        setReportContent(response.data.report_content);
+        // --- THIS IS THE FIX ---
+        // Provide a fallback to an empty array/string if the API response is missing data
+        setArticles(response.data.articles || []);
+        setReportContent(response.data.report_content || '');
         setStatus(response.data.message);
       } else {
         setStatus(response.data.message || 'An unknown error occurred.');
@@ -183,3 +185,4 @@ function App() {
 }
 
 export default App;
+
