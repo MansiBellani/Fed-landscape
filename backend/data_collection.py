@@ -81,10 +81,10 @@ class TechArticleSearch:
         if not unique_articles:
             return []
 
-        full_articles = []
-        for article in unique_articles:
-            scraped_article = await self._scrape_content(article)
-            full_articles.append(scraped_article)
+        # --- PERFORMANCE IMPROVEMENT ---
+        # We are now running the scraping tasks in parallel again for a significant speed boost.
+        scraping_tasks = [self._scrape_content(article) for article in unique_articles]
+        full_articles = await asyncio.gather(*scraping_tasks)
         
         valid_articles = [art for art in full_articles if art.get('full_content')]
         print(f"✅ Scraped content from {len(valid_articles)} valid articles.")
