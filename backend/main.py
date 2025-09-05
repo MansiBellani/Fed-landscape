@@ -14,16 +14,9 @@ report_generator = ReportGenerator()
 searcher = TechArticleSearch()
 classifier = ContentClassifier()
 
-# Cleaned up and robust CORS configuration
-origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Final, robust CORS configuration
+origins = ["*"] 
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 class ProcessRequest(BaseModel):
     recipient_email: str
@@ -87,5 +80,5 @@ async def process_request_endpoint(request: ProcessRequest, background_tasks: Ba
     )
     return {
         "status": "success",
-        "message": "Report generation started! Please check your email in a few minutes."
+        "message": "Report generation started! You will receive an email in a few minutes."
     }
